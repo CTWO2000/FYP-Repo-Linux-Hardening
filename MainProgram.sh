@@ -16,6 +16,18 @@ auto_update () {
 	fi
 }
 
+sudo_timeout () {
+	test=$(cat /etc/sudoers | grep timestamp_timeout=)
+	timeout_duration=$(cat /etc/sudoers | grep timestamp_timeout= | awk '{print $2}' | cut -d'=' -f 2)
+
+	if [ ! "$test" ]; then 
+		cp /etc/sudoers /etc/sudoers.bak
+		echo $'\n\n# Always ask for sudo password \nDefaults    timestamp_timeout=0' >> /etc/sudoers	
+	elif [ $timeout_duration -ne 0 ]; then
+		sed -i.bak 's/timestamp_timeout=.*/timestamp_timeout=0/' /etc/sudoers
+	fi
+}
+
 Back_Up_Config () {
 	timeshift --create --comments "Backup with Program" | dialog --programbox 12 70
 }
@@ -91,7 +103,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Second=$(dialog --cancel-label "Skip" \
-						--menu "Second Function:" 10 30 3 1 Function 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Sudo Timeout:" 10 30 3 1 "Sudo Timeout" 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -100,11 +112,11 @@ do
 					
 					# User's Choice
 					case $Second in
-						   # Second Configuration
-						1) echo "Second Function" ;;
+						   # Authenticate user each time sudo command is executed
+						1) sudo_timeout ;;
 						
 						   # Description Dialog
-						2) dialog --title "Message"  --msgbox "Second Function's Descriptions" 6 25 
+						2) dialog --title "Sudo Timeout Description"  --msgbox "This will force the the user authenticate each time the 'sudo' command is executed." 10 40 
 						msg_status=$?
 						description_loop=1 ;;
 						

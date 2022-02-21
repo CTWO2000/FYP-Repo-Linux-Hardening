@@ -192,7 +192,8 @@ do
 				2) dialog --title "Back Up Description (Highly Recommended For First Time Usage)"  --msgbox "This back up does not include personal files but only include \
 																 the system's configuration files. This is highly recommended \
 																 as it allow you to revert back to the old configuration if any \
-																 unexpected error were to occur." 10 65
+																 unexpected error were to occur. NOTE: By restoring the configurations \
+																 any updates done after the backup will also be reverted" 10 65
 				msg_status=$?
 				description_loop=1 ;;
 				

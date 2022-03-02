@@ -19,7 +19,13 @@ check_user(){
 		exit 0
 	fi
 
-	if id $username >/dev/null 2>&1; then
+	if [ ! "$username" ]; then
+		checkUser=0
+		dialog --title "Invalid Username"  --msgbox "Please enter a username" 10 65
+	elif [ "$username" = "root" ]; then
+		checkUser=0
+		dialog --title "Root Account"  --msgbox "Please do not use root account" 10 65	
+	elif id $username >/dev/null 2>&1; then
 		# User Exist
 		checkUser=1
 	else
@@ -36,12 +42,80 @@ do
 	check_user
 done
 
+# Check if sshd/ssh server is installed 
+if $(systemctl status sshd >/dev/null 2>&1); then
+	ssh_server=1
+else
+	ssh_server=0
+fi
+
+
+
+
 # Configuration Functions
+#/=====================================================================================================================================================================/
+# Change Default SSH port number
+ssh_change_port() {
+	
+	valid_port=0
+	
+	while [ $valid_port -eq 0 ]
+	do
+		exec 3>&1
+		ssh_port=$(dialog --inputbox "Enter SSH Port Number (Default: 22)" 0 0 2>&1 1>&3) 
+		exit_status=$? 
+		exec 3>&- 
+		
+		# Check if user input is a valid port number and not a string or empty 
+		if [[ $ssh_port ]] && [ $ssh_port -eq $ssh_port 2>/dev/null ]; then
+			valid_port=1
+		else
+			dialog --title "Invalid Port"  --msgbox "Please enter a number for the port." 10 65
+		fi
+	done
+	
+	sed -i "s/#Port .*/Port $ssh_port/" /etc/ssh/sshd_config 
+	
+	systemctl restart sshd
+}
+
+#/=====================================================================================================================================================================/
+# Disable IPv6 for SSH
+ ssh_disable_ipv6() {
+	sed -i 's/#AddressFamily .*/AddressFamily inet/' /etc/ssh/sshd_config 
+	
+	systemctl restart sshd
+}
+ 
+#/=====================================================================================================================================================================/
+# Remove Root Login
+ssh_no_root() {
+	sed -i 's/#PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config 
+	
+	systemctl restart sshd
+}
+
+#/=====================================================================================================================================================================/
+# General SSH Server Hardening
+ssh_server_hardening() {
+	sed -i.bak 's/#AllowTcpForwarding .*/AllowTcpForwarding no/' /etc/ssh/sshd_config 
+	sed -i 's/#ClientAliveCountMax .*/ClientAliveCountMax 2/' /etc/ssh/sshd_config
+	sed -i 's/#Compression .*/Compression no/' /etc/ssh/sshd_config 
+	sed -i 's/#LogLevel .*/LogLevel VERBOSE/' /etc/ssh/sshd_config 
+	sed -i 's/#MaxAuthTries .*/MaxAuthTries 3/' /etc/ssh/sshd_config 
+	sed -i 's/#MaxSessions .*/MaxSessions 2/' /etc/ssh/sshd_config 
+	sed -i 's/#TCPKeepAlive .*/TCPKeepAlive no/' /etc/ssh/sshd_config 
+	sed -i 's/#AllowAgentForwarding .*/AllowAgentForwarding no/' /etc/ssh/sshd_config 
+	sed -i 's/X11Forwarding yes/X11Forwarding no/' /etc/ssh/sshd_config 
+
+	systemctl restart sshd
+}
+
 #/=====================================================================================================================================================================/
 # Disable IPv6
 disable_ipv6() {
 	sed -i.bak 's/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ipv6.disable=1"/' /etc/default/grub
-	sed -i.bak 's/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="ipv6.disable=1"/' /etc/default/grub
+	sed -i 's/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="ipv6.disable=1"/' /etc/default/grub
 
 	# Redirect stderr to stdout for dialog
 	update-grub 2>&1 | dialog --programbox 12 70
@@ -100,7 +174,7 @@ configure_pw_complexity() {
 		dialog --title "Missing pam_pwquality.so"  --msgbox "pam_pwquality.so Not Installed" 10 65	
 	else
 		sed -i.bak 's/pam_pwquality.so .*/pam_pwquality.so retry=1 minlen=8 difok=4 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 reject_username enforce_for_root/' /etc/pam.d/common-password
-		sed -i.bak 's/pam_unix.so .*/pam_unix.so obscure use_authtok try_first_pass sha512 remember=3/' /etc/pam.d/common-password
+		sed -i 's/pam_unix.so .*/pam_unix.so obscure use_authtok try_first_pass sha512 remember=3/' /etc/pam.d/common-password
 	fi
 
 }
@@ -587,6 +661,180 @@ do
 						   # Return to HomePage
 						3) quit_config=0
 					esac
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ssh_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "General SSH Server Hardening" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # General SSH Server Hardening
+							1) ssh_server_hardening ;;
+							
+							   # Description Dialog
+							2) dialog --title "General SSH Server Hardening"  --msgbox "This configuration would would Harden the SSH server." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ssh_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Remove Root login for SSH" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Remove Root login for SSH
+							1) ssh_no_root ;;
+							
+							   # Description Dialog
+							2) dialog --title "Remove Root login for SSH"  --msgbox "SSH Client can no longer login as root" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ssh_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Remove IPv6 for SSH" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Remove Root login for SSH
+							1) ssh_disable_ipv6 ;;
+							
+							   # Description Dialog
+							2) dialog --title "Remove IPv6 for SSH"  --msgbox "SSH client can no longer connect to SSH server via IPv6" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ssh_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Change Default SSH Port Number (Port 22)" 10 45 3 1 Change 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Change default SSH port
+							1) ssh_change_port ;;
+							
+							   # Description Dialog
+							2) dialog --title "Change Default SSH Port Number (Port 22)"  --msgbox "This configuration would allow the user to \
+																   change the default SSH port number to prevent \
+																   spam bot from attacking the default SSH port" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
 
 				done ;;
 

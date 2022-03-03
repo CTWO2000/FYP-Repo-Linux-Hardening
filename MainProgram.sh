@@ -54,6 +54,29 @@ fi
 
 # Configuration Functions
 #/=====================================================================================================================================================================/
+# Install and Configure Fail2Ban
+fail_2_ban() {
+	apt -y install fail2ban 2>/dev/null | dialog --programbox "Installing Fail2Ban" 20 70
+
+	ssh_port=$(cat /etc/ssh/sshd_config | grep "Port " | awk '{print $2}')
+	
+	# check if "jail.local" file already exist
+	# if it does create a backup file before creating a new file
+	# NOTE: If SSH log is VERBOSE, each fail attempts will be counted as 2
+	if [ ! -f "/etc/fail2ban/jail.local" ]; then
+		touch /etc/fail2ban/jail.local
+		echo -e "[sshd]\nport = $ssh_port\nfilter = sshd\nlogpath = /var/log/auth.log\nmaxretry = 3\nbantime = 3600\n" >> /etc/fail2ban/jail.local
+	    
+	else
+		mv /etc/fail2ban/jail.local /etc/fail2ban/jail.local.bak
+		touch /etc/fail2ban/jail.local
+		echo -e "[sshd]\nport = $ssh_port\nfilter = sshd\nlogpath = /var/log/auth.log\nmaxretry = 3\nbantime = 3600\n" >> /etc/fail2ban/jail.local
+	fi
+
+	systemctl restart fail2ban
+}
+
+#/=====================================================================================================================================================================/
 # Change Default SSH port number
 ssh_change_port() {
 	
@@ -825,6 +848,52 @@ do
 							2) dialog --title "Change Default SSH Port Number (Port 22)"  --msgbox "This configuration would allow the user to \
 																   change the default SSH port number to prevent \
 																   spam bot from attacking the default SSH port" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ssh_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Install and Configure Fail2Ban" 10 45 3 1 "Install and Configure" 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Change default SSH port
+							1) fail_2_ban ;;
+							
+							   # Description Dialog
+							2) dialog --title "Install and Configure Fail2Ban"  --msgbox "Fail2Ban is a tool to either permanently or temporarily ban/block \
+															ip addresses that tries to brute forces remote connections. \
+															For this configuration, the Fail2Ban will ban/block any ip address \
+															for 1 hours after 3 login attempts." 10 65 
 							msg_status=$?
 							description_loop=1 ;;
 							

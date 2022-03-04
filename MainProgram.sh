@@ -275,6 +275,17 @@ Back_Up_Config () {
 	timeshift --create --comments "Backup with Program" | dialog --programbox 12 70
 }
 
+#/=====================================================================================================================================================================/
+
+check_timeshift () {
+	# Install Dialog if not installed 
+	command -v "timeshift" >/dev/null 2>&1
+
+	if [[ $? -ne 0 ]]; then
+		timeshift_installed=0
+	fi
+}
+
 
 #/=====================================================================================================================================================================/
 ## Main Loop
@@ -929,7 +940,21 @@ do
 			# User's Choice
 			case $First in
 				   # First Configuration
-				1) Back_Up_Config ;;
+				1) check_timeshift
+				if [ timeshift_installed -eq 0 ]; then
+					exec 3>&1 
+					First=$(dialog --cancel-label "Back" \
+					       --menu "Install TimeShift (Highly Recommended)" 10 50 3 1 "Install" 2 Exit 2>&1 1>&3)
+					exit_status=$? 
+					exec 3>&-
+					case $First in
+						1) apt -y install timeshift 2>/dev/null | dialog --programbox "Installing TimeShift" 20 70;;
+						2) quit_config=0
+					esac
+				fi
+				
+				
+				Back_Up_Config ;;
 
 				   # Description Dialog
 				2) dialog --title "Back Up Description (Highly Recommended For First Time Usage)"  --msgbox "This back up does not include personal files but only include \

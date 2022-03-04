@@ -6,6 +6,7 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+
 # Install Dialog if not installed 
 command -v "dialog" >/dev/null 2>&1
 
@@ -30,7 +31,10 @@ check_user(){
 		dialog --title "Invalid Username"  --msgbox "Please enter a username" 10 65
 	elif [ "$username" = "root" ]; then
 		checkUser=0
-		dialog --title "Root Account"  --msgbox "Please do not use root account" 10 65	
+		dialog --title "Root Account"  --msgbox "Please do not use root account as the main account.  \
+							  It poses a huge security risk as anyone that have access \
+							  to the device would be able to execute/run any programs/tasks \
+							  without any authentication." 10 65	
 	elif id $username >/dev/null 2>&1; then
 		# User Exist
 		checkUser=1

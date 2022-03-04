@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# If user does not have root privilege, close the program. 
+if [[ $EUID -ne 0 ]]; then
+   echo "This program must be run with an account with root privilege (sudo privilege)" 
+   exit 1
+fi
+
 # Install Dialog if not installed 
 command -v "dialog" >/dev/null 2>&1
 

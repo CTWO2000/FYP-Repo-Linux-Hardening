@@ -947,7 +947,7 @@ do
 			case $First in
 				   # First Configuration
 				1) check_timeshift
-				if [ timeshift_installed -eq 0 ]; then
+				if [ $timeshift_installed -eq 0 ]; then
 					exec 3>&1 
 					First=$(dialog --cancel-label "Back" \
 					       --menu "Install TimeShift (Highly Recommended)" 10 50 3 1 "Install" 2 Exit 2>&1 1>&3)

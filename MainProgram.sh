@@ -59,10 +59,105 @@ else
 	ssh_server=0
 fi
 
+# Check if ftp server is installed 
+if $(systemctl status vsftpd >/dev/null 2>&1); then
+	echo "ftp Server Installed"
+	ftp_server=1
+else
+	echo "ftp Server not Installed"
+	ftp_server=0
+fi
 
+# Check if telnet server is installed 
+if $(systemctl status inetd >/dev/null 2>&1); then
+	telnet_server=1
+else
+	telnet_server=0
+fi
+
+# Check if ufw is active, if its active, don't configure.
+ufw status | grep -qw active
+ufw_status=$?
 
 
 # Configuration Functions
+#/=====================================================================================================================================================================/
+# Install UFW GUI
+install_gufw() {
+	apt install gufw -y 2>/dev/null | dialog --programbox "Install GUFW (UFW Graphical User Interface)" 20 70
+}
+
+#/=====================================================================================================================================================================/
+# Check if GUFW is installed
+check_gufw () {
+	# Install GUFW if not installed 
+	command -v "gufw" >/dev/null 2>&1
+
+	if [[ $? -ne 0 ]]; then
+		gufw_installed=0
+	fi
+}
+
+#/=====================================================================================================================================================================/
+# Enable UFW
+enable_ufw() {
+	ufw enable
+}
+
+#/=====================================================================================================================================================================/
+# UFW allow Telnet
+ufw_allow_telnet() {
+	ufw allow telnet
+}
+
+#/=====================================================================================================================================================================/
+# UFW allow FTP
+ufw_allow_ftp() {
+	ufw allow ftp
+}
+
+#/=====================================================================================================================================================================/
+# UFW allow https
+ufw_allow_https() {
+	ufw allow https
+}
+
+#/=====================================================================================================================================================================/
+# UFW allow http
+ufw_allow_http() {
+	ufw allow http
+}
+
+#/=====================================================================================================================================================================/
+# UFW allow SSH
+ufw_allow_ssh() {
+	ssh_port_ufw=$(cat /etc/ssh/sshd_config | grep "Port " | awk '{print $2}')
+	ufw allow $ssh_port_ufw
+}
+
+#/=====================================================================================================================================================================/
+# Configure Default UFW policy
+default_ufw() {
+	ufw default deny incoming
+	ufw default allow outgoing
+}
+
+#/=====================================================================================================================================================================/
+# Remove FTP
+remove_ftp() {
+	apt purge vsftpd -y 2>/dev/null | dialog --programbox "Removing FTP Server" 20 70
+	apt autoremove -y 2>/dev/null | dialog --programbox "Removing FTP Server" 20 70
+	ftp_server=0
+}
+
+#/=====================================================================================================================================================================/
+# Remove telnet
+remove_telnet() {
+	apt purge telnetd -y 2>/dev/null | dialog --programbox "Removing Telnet Server" 20 70
+	apt autoremove -y 2>/dev/null | dialog --programbox "Removing Telnet Server" 20 70
+	telnet_server=0
+}
+
 #/=====================================================================================================================================================================/
 # Install and Configure Fail2Ban
 fail_2_ban() {
@@ -288,7 +383,7 @@ Back_Up_Config () {
 #/=====================================================================================================================================================================/
 
 check_timeshift () {
-	# Install Dialog if not installed 
+	# Install Timeshift if not installed 
 	command -v "timeshift" >/dev/null 2>&1
 
 	if [[ $? -ne 0 ]]; then
@@ -926,8 +1021,458 @@ do
 						description_loop=0
 					fi
 
-				done ;;
+				done 
 
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $telnet_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Uninstall Telnet Server" 10 45 3 1 Uninstall 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall Telnet Server
+							1) remove_telnet ;;
+							
+							   # Description Dialog
+							2) dialog --title "Uninstall Telnet Server"  --msgbox "Telnet is a very insecure protocol as messages are not encrypted. \
+														 Use SSH as an alternative." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ftp_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Uninstall FTP Server" 10 45 3 1 Uninstall 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) remove_ftp ;;
+							
+							   # Description Dialog
+							2) dialog --title "Uninstall FTP Server"  --msgbox "FTP is a very insecure protocol as messages are not encrypted. \
+													      Use SCP (SSH file transfer) as an alternative." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 0 ]; then
+						dialog --title "UFW Firewall"  --msgbox "It seems that UFW firewall is already configured. \
+											  Therefore, the UWF firewall configuration would not \
+											  be implemented." 10 65
+						# Break the description dialog loop
+						description_loop=0
+					elif [ $ufw_status -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Configure Default UFW Policy/Behaviour" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) default_ufw ;;
+							
+							   # Description Dialog
+							2) dialog --title "Configure Default UFW Policy/Behaviour"  --msgbox "By default, UFW firewall would allow all outgoing traffic \
+																 and deny all incoming traffic" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 1 ] && [ $ssh_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Firewall Allow incoming SSH Connection" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) ufw_allow_ssh ;;
+							
+							   # Description Dialog
+							2) dialog --title "Firewall Allow incoming SSH Connection"  --msgbox "This configuration will allow remote devices to connect \
+																to the User's device via SSH" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 1 ] && [ $ftp_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Firewall Allow incoming FTP Connection (Not Recommended)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) ufw_allow_ftp ;;
+							
+							   # Description Dialog
+							2) dialog --title "Firewall Allow incoming FTP Connection (Not Recommended)"  --msgbox "This configuration will allow remote devices \
+																		   to connect to the User's device via FTP. \
+																		   This is not recommended as FTP is a very insecure \
+																		   protocol as messages are not encrypted." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 1 ] && [ $telnet_server -eq 1 ]; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Firewall Allow incoming Telnet Connection (Not Recommended)" 12 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) ufw_allow_telnet ;;
+							
+							   # Description Dialog
+							2) dialog --title "Firewall Allow incoming Telnet Connection (Not Recommended)"  --msgbox "This configuration will allow remote devices \
+																		   to connect to the User's device via Telnet. \
+																		   This is not recommended as Telnet is a very insecure \
+																		   protocol as messages are not encrypted." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 1 ] ; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Firewall Allow incoming HTTP Connection (For Hosting Website)" 12 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) ufw_allow_http ;;
+							
+							   # Description Dialog
+							2) dialog --title "Firewall Allow incoming HTTP Connection (For Hosting Website)"  --msgbox "This configuration is only applicable for Users\
+																			who are hosting website on port 80 (http)" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 1 ] ; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Firewall Allow incoming HTTPS Connection (For Hosting Website)" 12 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) ufw_allow_https ;;
+							
+							   # Description Dialog
+							2) dialog --title "Firewall Allow incoming HTTPS Connection (For Hosting Website)"  --msgbox "This configuration is only applicable for Users\
+																			who are hosting website on port 443 (https)" 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+					
+					if [ $ufw_status -eq 1 ] ; then
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Enable UFW Firewall" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # Uninstall FTP Server
+							1) enable_ufw ;;
+							
+							   # Description Dialog
+							2) dialog --title "Enable UFW Firewall"  --msgbox "This configuration would enable UFW Firewall." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+					else
+						# Break the description dialog loop
+						description_loop=0
+					fi
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				
+				check_gufw
+				if [ $gufw_installed -eq 0 ]; then
+					description_loop=1
+					while [ $description_loop -eq 1 ]
+					do
+						# Skip this configuration (Returning to HomePage)
+						if [ $quit_config -eq 0 ]; then
+							break
+						fi
+						
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Second=$(dialog --cancel-label "Skip" \
+							--menu "Install GUFW (UFW Graphical User Interface)" 10 30 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Second in
+							   # Authenticate user each time sudo command is executed
+							1) install_gufw ;;
+							
+							   # Description Dialog
+							2) dialog --title "Install GUFW (UFW Graphical User Interface)"  --msgbox "This will install a UFW Graphical User Interface application." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+
+					done
+				fi
+			#/================================================================================================/
+				
+				if [ $quit_config -eq 1 ]; then
+					dialog --title "GUFW (UFW Graphical User Interface)"  --msgbox "To reconfigure the UFW firewall, search/install for GUFW for the UFW Graphical User \
+											  Interface Application" 10 65 
+				fi ;;
 			#/================================================================================================/
 		# HomePage's Description Dialog
 		2) dialog --title "Message"  --msgbox "HomePage's Descriptions" 6 25 ;;

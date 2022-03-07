@@ -54,24 +54,28 @@ done
 
 # Check if sshd/ssh server is installed 
 if $(systemctl status sshd >/dev/null 2>&1); then
+	# echo "ssh Server Installed"
 	ssh_server=1
 else
+	# echo "ssh Server Installed"
 	ssh_server=0
 fi
 
 # Check if ftp server is installed 
 if $(systemctl status vsftpd >/dev/null 2>&1); then
-	echo "ftp Server Installed"
+	# echo "ftp Server Installed"
 	ftp_server=1
 else
-	echo "ftp Server not Installed"
+	# echo "ftp Server not Installed"
 	ftp_server=0
 fi
 
 # Check if telnet server is installed 
 if $(systemctl status inetd >/dev/null 2>&1); then
+	# echo "telnet Server Installed"
 	telnet_server=1
 else
+	# echo "telnet Server Installed"
 	telnet_server=0
 fi
 
@@ -81,6 +85,55 @@ ufw_status=$?
 
 
 # Configuration Functions
+#/=====================================================================================================================================================================/
+# User's Home directory permission
+home_directory() {
+	chmod 700 /home/$username
+}
+
+#/=====================================================================================================================================================================/
+# Harden Compiler (Only sudo/root is able to use compiler)
+harden_compiler() {
+	chmod 700 /usr/bin/as
+	chmod 700 /usr/bin/gcc
+	chmod 700 /usr/bin/g++
+	chmod 700 /usr/bin/cc
+}
+
+#/=====================================================================================================================================================================/
+# Disabling Unused Protocols such as dccp, rds, tipc and sctp
+unused_protocols() {
+	if [ ! -f "/etc/modprobe.d/unuse_protocol.conf" ]; then
+		touch /etc/modprobe.d/unuse_protocol.conf
+		echo -e "install dccp /bin/true\ninstall sctp /bin/true\ninstall rds /bin/true\ninstall tipc /bin/true" >> /etc/modprobe.d/unuse_protocol.conf
+	fi
+}
+
+#/=====================================================================================================================================================================/
+# Disable Coredump
+disable_coredump() {
+	limit_core_soft=$(cat /etc/security/limits.conf | grep -P "\* soft core 0") 
+	limit_core_hard=$(cat /etc/security/limits.conf | grep -P "\* hard core 0") 
+	sysctl_core=$(cat /etc/sysctl.conf| grep -P "fs.suid_dumpable=0") 
+
+	if [ ! "$limit_core_soft" ]; then
+		echo -e "\n#Disable Coredump\n* soft core 0" >> /etc/security/limits.conf
+	fi
+
+	if [ ! "$limit_core_hard" ]; then
+		echo -e "\n#Disable Coredump\n* hard core 0" >> /etc/security/limits.conf
+	fi
+
+
+	if [ ! "$sysctl_core" ]; then
+		cp /etc/sysctl.conf /etc/sysctl.conf.bak
+		echo -e "\n#Disable Coredump\nfs.suid_dumpable=0" >> /etc/sysctl.conf
+
+		sysctl -p | dialog --programbox "Disabling Core Dump" 20 70
+	fi 
+}
+
+
 #/=====================================================================================================================================================================/
 # Install UFW GUI
 install_gufw() {
@@ -256,22 +309,22 @@ no_root_login() {
 }
 
 #/=====================================================================================================================================================================/
-# Root Umask
-root_umask() {
+# sudo Umask
+sudo_umask() {
 	sed -i.bak 's/UMASK\t\t.*/UMASK\t\t026 # Default "umask" value./' /etc/login.defs
 }
 
 #/=====================================================================================================================================================================/
-# Local Umask
-local_umask() {
-	umask=$(cat /home/$username/.bashrc | grep -P "umask\t")
-	umask_value=$(cat /home/$username/.bashrc | grep -P "umask\t" | awk '{print $2}')
+# global Umask
+global_umask() {
+	umask=$(cat /etc/bash.bashrc | grep -P "umask\t")
+	umask_value=$(cat /etc/bash.bashrc | grep -P "umask\t" | awk '{print $2}')
 
 	if [ ! "$umask" ]; then 
-		cp /home/$username/.bashrc /home/$username/.bashrc.bak
-		echo $'\n\n# Change Default Umask Value (Personal) \numask\t077' >> /home/$username/.bashrc	
+		cp /etc/bash.bashrc /etc/bash.bashrc.bak
+		echo $'\n\n# Change Default Umask Value (Personal) \numask\t077' >> /etc/bash.bashrc	
 	elif [ $umask_value -ne 0077 ] || [ $umask_value -ne 077 ]; then
-		sed -i.bak 's/umask\t.*/umask\t077/' /home/$username/.bashrc
+		sed -i.bak 's/umask\t.*/umask\t077/' /etc/bash.bashrc
 	fi
 }
 
@@ -663,7 +716,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Configure Root Umask (Restrictive)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Configure sudo Umask (Restrictive)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -672,12 +725,12 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # Change Root Umask to 026 (Restrictive) (Group: File (read), Directory (Read and Execute), Other: File (None), Directory (Execute))
-						1) root_umask ;;
+						   # Change sudo Umask to 026 (Restrictive) (Group: File (read), Directory (Read and Execute), Other: File (None), Directory (Execute))
+						1) sudo_umask ;;
 						
 						   # Description Dialog
 						2) dialog --title "Configure Root Umask (Restrictive)"  --msgbox "This configuration can be quite restrictive as any new file and directory created  \
-														    by Root can only be access with Root Priviledge ('# sudo <command>'). " 10 65 
+														    by sudo can only be access with Root Priviledge ('# sudo <command>'). " 10 65 
 						msg_status=$?
 						description_loop=1 ;;
 						
@@ -702,7 +755,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Configure Local Umask" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Configure Global Umask (Restrictive)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -712,11 +765,11 @@ do
 					# User's Choice
 					case $Third in
 						   # User only able to change password once a day (Restrictive)
-						1) local_umask ;;
+						1) global_umask ;;
 						
 						   # Description Dialog
-						2) dialog --title "Configure Local Umask"  --msgbox "With this configuration, any new file and directory created can only be access by the User \
-												       and Root." 10 65 
+						2) dialog --title "Configure Global Umask (Restrictive)"  --msgbox "With this configuration, any new file and directory created \
+														      can only be access by the User and Root." 10 65 
 						msg_status=$?
 						description_loop=1 ;;
 						
@@ -1472,7 +1525,165 @@ do
 				if [ $quit_config -eq 1 ]; then
 					dialog --title "GUFW (UFW Graphical User Interface)"  --msgbox "To reconfigure the UFW firewall, search/install for GUFW for the UFW Graphical User \
 											  Interface Application" 10 65 
-				fi ;;
+				fi 
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+				
+					# Configuration Dialog Menu
+					exec 3>&1 
+					Third=$(dialog --cancel-label "Skip" \
+						--menu "Disabling Core Dump" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+					exit_status=$? 
+					exec 3>&-
+					
+					# Break the description dialog loop
+					description_loop=0
+					
+					# User's Choice
+					case $Third in
+						   # Password Expires in 90 days
+						1) disable_coredump ;;
+						
+						   # Description Dialog
+						2) dialog --title "Disabling Core Dump"  --msgbox "Core Dumps are are usually used by developers for troubleshooting \
+												     if it is not used, it is better to disable it as the cored dumps could \
+										      		     contain sensitive information." 10 65 
+						msg_status=$?
+						description_loop=1 ;;
+						
+						   # Return to HomePage
+						3) quit_config=0
+					esac
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+				
+					# Configuration Dialog Menu
+					exec 3>&1 
+					Third=$(dialog --cancel-label "Skip" \
+						--menu "Disabling DCCP, RDS, TIPC and SCTP Protocols" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+					exit_status=$? 
+					exec 3>&-
+					
+					# Break the description dialog loop
+					description_loop=0
+					
+					# User's Choice
+					case $Third in
+						   # Password Expires in 90 days
+						1) unused_protocols ;;
+						
+						   # Description Dialog
+						2) dialog --title "Disabling DCCP, RDS, TIPC and SCTP Protocols"  --msgbox "These protocols are not used often, hence, it is recommended to \
+												     			       disable it in order to reduce the surface of attack." 10 65 
+						msg_status=$?
+						description_loop=1 ;;
+						
+						   # Return to HomePage
+						3) quit_config=0
+					esac
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+				
+					# Configuration Dialog Menu
+					exec 3>&1 
+					Third=$(dialog --cancel-label "Skip" \
+						--menu "Hardening Compiler (GCC, G++, CC and AS)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+					exit_status=$? 
+					exec 3>&-
+					
+					# Break the description dialog loop
+					description_loop=0
+					
+					# User's Choice
+					case $Third in
+						   # Password Expires in 90 days
+						1) harden_compiler ;;
+						
+						   # Description Dialog
+						2) dialog --title "Hardening Compiler (GCC, G++, CC and AS)"  --msgbox "This configuration would ensure that the compilers (GCC, G++, CC and AS) \
+														  	   can only be executed with root/sudo provilege. This is to prevent \
+														  	   attacker to compile malicious code within the user's machine." 10 65 
+						msg_status=$?
+						description_loop=1 ;;
+						
+						   # Return to HomePage
+						3) quit_config=0
+					esac
+
+				done 
+
+			#/================================================================================================/
+				# Allow the description dialog to loop back to its configuration page
+				description_loop=1
+
+				while [ $description_loop -eq 1 ]
+				do
+					
+					# Skip this configuration (Returning to HomePage)
+					if [ $quit_config -eq 0 ]; then
+						break
+					fi
+				
+					# Configuration Dialog Menu
+					exec 3>&1 
+					Third=$(dialog --cancel-label "Skip" \
+						--menu "Harden Home Directory Permission" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+					exit_status=$? 
+					exec 3>&-
+					
+					# Break the description dialog loop
+					description_loop=0
+					
+					# User's Choice
+					case $Third in
+						   # Password Expires in 90 days
+						1) home_directory ;;
+						
+						   # Description Dialog
+						2) dialog --title "Harden Home Directory Permission"  --msgbox "This configuration ensure that only user is able to access \
+														   his/her home directory." 10 65 
+						msg_status=$?
+						description_loop=1 ;;
+						
+						   # Return to HomePage
+						3) quit_config=0
+					esac
+
+				done ;; 
+
 			#/================================================================================================/
 		# HomePage's Description Dialog
 		2) dialog --title "Message"  --msgbox "HomePage's Descriptions" 6 25 ;;

@@ -6,6 +6,7 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+apt -y update
 
 # Install Dialog if not installed 
 command -v "dialog" >/dev/null 2>&1
@@ -79,12 +80,55 @@ else
 	telnet_server=0
 fi
 
+
+
 # Check if ufw is active, if its active, don't configure.
 ufw status | grep -qw active
 ufw_status=$?
 
 
 # Configuration Functions
+#/=====================================================================================================================================================================/
+# Configure Apparmor
+configure_apparmor() {
+	apt install apparmor-profiles apparmor-utils 2>/dev/null | dialog --programbox "Installing AppArmor Profiles" 20 70
+	aa-enforce /etc/apparmor.d/* | dialog --programbox "Enforcing AppArmor Profiles" 20 70
+}
+#/=====================================================================================================================================================================/
+# Enable AppArmor
+enable_apparmor() {
+	systemctl start apparmor 
+}
+#/=====================================================================================================================================================================/
+# Check if AppArmor is enabled
+check_apparmor() {
+	systemctl is-active --quiet apparmor
+	service_status=$?
+
+	if [ $service_status -ne  0 ]; then
+		apparmor_status=0
+	else 
+		apparmor_status=1
+	fi
+}
+#/=====================================================================================================================================================================/
+# Install Clamav
+install_clamav() {
+	sudo apt -y install clamav 2>/dev/null | dialog --programbox "Installing Clamav Antivirus" 20 70
+	sudo apt -y install clamtk 2>/dev/null | dialog --programbox "Installing Clamav Antivirus GUI (Graphical User Interface)" 20 70
+	clamav_installed=1
+}
+#/=====================================================================================================================================================================/
+# Check if clamav is installed 
+check_clamav() {
+	command -v "clamtk" >/dev/null 2>&1
+
+	if [[ $? -ne 0 ]]; then
+		clamav_installed=0
+	else 
+		clamav_installed=1
+	fi
+}
 #/=====================================================================================================================================================================/
 # User's Home directory permission
 home_directory() {
@@ -433,6 +477,21 @@ Back_Up_Config () {
 	timeshift --create --comments "Backup with Program" | dialog --programbox 12 70
 }
 
+#/=====================================================================================================================================================================/
+# Install TimeShift
+install_timeshift() {
+	if [ $timeshift_installed -eq 0 ]; then
+		exec 3>&1 
+		First=$(dialog --cancel-label "Back" \
+			       --menu "Install TimeShift (Highly Recommended)" 10 50 3 1 "Install" 2 Exit 2>&1 1>&3)
+		exit_status=$? 
+		exec 3>&-
+		case $First in
+			1) apt -y install timeshift 2>/dev/null | dialog --programbox "Installing TimeShift" 20 70;;
+			2) quit_config=0
+		esac
+	fi
+}
 #/=====================================================================================================================================================================/
 
 check_timeshift () {
@@ -1682,7 +1741,138 @@ do
 						3) quit_config=0
 					esac
 
-				done ;; 
+				done 
+
+			#/================================================================================================/
+				check_clamav
+				if [ $clamav_installed -eq 0 ]; then 
+					# Allow the description dialog to loop back to its configuration page
+					description_loop=1
+					while [ $description_loop -eq 1 ]
+					do
+						
+						# Skip this configuration (Returning to HomePage)
+						if [ $quit_config -eq 0 ]; then
+							break
+						fi
+					
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Installing Clamav Antivirus with Graphical User Interface" 10 45 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # installing clamav antivirus 
+							1) install_clamav ;;
+							
+							   # Description Dialog
+							2) dialog --title "Installing Clamav Antivirus with Graphical User Interface"  --msgbox "This would install Clamav antivirus \
+																		    along with it GUI application 'Clamtk'." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+
+					done  
+				fi
+
+			#/================================================================================================/
+				if [ $quit_config -eq 1 ] && [ $clamav_installed -ne 0 ] ; then
+					dialog --title "Clamtk (Clamav Graphical User Interface)"  --msgbox "To configure or to perform scan use the clamtk application for the \
+														Graphical User Interface" 10 65 
+				fi 
+			#/================================================================================================/
+				check_apparmor
+				if [ $apparmor_status -eq 0 ]; then 
+					# Allow the description dialog to loop back to its configuration page
+					description_loop=1
+					while [ $description_loop -eq 1 ]
+					do
+						
+						# Skip this configuration (Returning to HomePage)
+						if [ $quit_config -eq 0 ]; then
+							break
+						fi
+					
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Enable Apparmor" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # installing clamav antivirus 
+							1) enable_apparmor ;;
+							
+							   # Description Dialog
+							2) dialog --title "Enable Apparmor"  --msgbox "AppArmor is tool that ensure applications only does what it is suppose to do \
+													if the application deviates from its task, AppArmor would block it." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+
+					done  
+				fi
+
+			#/================================================================================================/
+				check_apparmor
+				if [ $apparmor_status -ne 0 ]; then 
+					# Allow the description dialog to loop back to its configuration page
+					description_loop=1
+					while [ $description_loop -eq 1 ]
+					do
+						
+						# Skip this configuration (Returning to HomePage)
+						if [ $quit_config -eq 0 ]; then
+							break
+						fi
+					
+						# Configuration Dialog Menu
+						exec 3>&1 
+						Third=$(dialog --cancel-label "Skip" \
+							--menu "Install Additional Apparmor Profiles" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						exit_status=$? 
+						exec 3>&-
+						
+						# Break the description dialog loop
+						description_loop=0
+						
+						# User's Choice
+						case $Third in
+							   # installing clamav antivirus 
+							1) configure_apparmor ;;
+							
+							   # Description Dialog
+							2) dialog --title "Install Additional Apparmor Profiles"  --msgbox "AppArmor is tool that ensure applications \ 
+															      only does what it is suppose to do if the \ 
+															      application deviates from its task, AppArmor \
+															      would block it. This configuration install and \
+															      enforce additional rules for AppArmor." 10 65 
+							msg_status=$?
+							description_loop=1 ;;
+							
+							   # Return to HomePage
+							3) quit_config=0
+						esac
+
+					done  
+				fi ;;
 
 			#/================================================================================================/
 		# HomePage's Description Dialog
@@ -1707,19 +1897,7 @@ do
 			case $First in
 				   # First Configuration
 				1) check_timeshift
-				if [ $timeshift_installed -eq 0 ]; then
-					exec 3>&1 
-					First=$(dialog --cancel-label "Back" \
-					       --menu "Install TimeShift (Highly Recommended)" 10 50 3 1 "Install" 2 Exit 2>&1 1>&3)
-					exit_status=$? 
-					exec 3>&-
-					case $First in
-						1) apt -y install timeshift 2>/dev/null | dialog --programbox "Installing TimeShift" 20 70;;
-						2) quit_config=0
-					esac
-				fi
-				
-				
+				install_timeshift
 				Back_Up_Config ;;
 
 				   # Description Dialog

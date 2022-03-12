@@ -91,8 +91,8 @@ ufw_status=$?
 #/=====================================================================================================================================================================/
 # Configure Apparmor
 configure_apparmor() {
-	apt install apparmor-profiles apparmor-utils 2>/dev/null | dialog --programbox "Installing AppArmor Profiles" 20 70
-	aa-enforce /etc/apparmor.d/* | dialog --programbox "Enforcing AppArmor Profiles" 20 70
+	apt install -y apparmor-profiles apparmor-utils 2>/dev/null | dialog --programbox "Installing AppArmor Profiles" 20 70
+	aa-enforce /etc/apparmor.d/* | dialog --programbox "Enforcing AppArmor Profiles (Output would take awhile show up)" 20 70
 }
 #/=====================================================================================================================================================================/
 # Enable AppArmor
@@ -343,7 +343,7 @@ disable_ipv6() {
 	sed -i 's/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="ipv6.disable=1"/' /etc/default/grub
 
 	# Redirect stderr to stdout for dialog
-	update-grub 2>&1 | dialog --programbox 12 70
+	update-grub 2>&1 | dialog --programbox "Disabling IPv6" 12 70 
 }
 
 #/=====================================================================================================================================================================/
@@ -355,7 +355,7 @@ no_root_login() {
 #/=====================================================================================================================================================================/
 # sudo Umask
 sudo_umask() {
-	sed -i.bak 's/UMASK\t\t.*/UMASK\t\t026 # Default "umask" value./' /etc/login.defs
+	sed -i.bak 's/UMASK\t\t.*/UMASK\t\t026 \n# Default "umask" value./' /etc/login.defs
 }
 
 #/=====================================================================================================================================================================/
@@ -375,14 +375,14 @@ global_umask() {
 #/=====================================================================================================================================================================/
 # Configure Password Expiration (90 days)
 password_expiration() {
-	sed -i.bak 's/PASS_MAX_DAYS\t.*/PASS_MAX_DAYS\t90 # Maximum number of days a password may be used./' /etc/login.defs
+	sed -i.bak 's/PASS_MAX_DAYS\t.*/PASS_MAX_DAYS\t90 \n# Maximum number of days a password may be used./' /etc/login.defs
 	chage -M 90 $username
 }
 
 #/=====================================================================================================================================================================/
 # Configure Password Change Frequency (1 day)
 password_min() {
-	sed -i.bak 's/PASS_MIN_DAYS\t.*/PASS_MIN_DAYS\t1 # Minimum number of days allowed between password changes./' /etc/login.defs
+	sed -i.bak 's/PASS_MIN_DAYS\t.*/PASS_MIN_DAYS\t1 \n# Minimum number of days allowed between password changes./' /etc/login.defs
 	chage -m 1 $username
 }
 
@@ -433,7 +433,8 @@ change_password() {
 	elif [ $pass_status -ne 0 ]; then
 		password_loop=1
 		dialog --title "Invalid Password"  --msgbox "Password Requirement: \
-							      Minimum 8 characters, 1 Uppercase, 1 Lowercase, 1 Digit, 1 Symbol, No Re-use Password and No Username. \
+							      Minimum 8 characters, 1 Uppercase, 1 Lowercase, 1 Digit, 1 Symbol, No Re-use Password and No Username.
+							      
 							      If all the requirement is satisfied, means that the password is the new password and the confirm password is not the same or \
 							      the password is too predictable and can be brute forced easily." 10 65
 	# Successfully change the password
@@ -446,7 +447,6 @@ change_password() {
 #/=====================================================================================================================================================================/
 # Enable Auto-Update
 auto_update () {
-	echo "Hello World"
 	# Cut out the auto-update string 
 	update=$(cat /etc/apt/apt.conf.d/20auto-upgrades | grep Update-Package-Lists | awk '{print $2}' | cut -d'"' -f 2)
 
@@ -573,7 +573,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Second=$(dialog --cancel-label "Skip" \
-						--menu "Sudo Timeout:" 10 30 3 1 "Sudo Timeout" 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Sudo Timeout" 10 30 3 1 "Sudo Timeout" 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -586,7 +586,8 @@ do
 						1) sudo_timeout ;;
 						
 						   # Description Dialog
-						2) dialog --title "Sudo Timeout Description"  --msgbox "This will force the the user authenticate each time the 'sudo' command is executed." 10 65 
+						2) dialog --title "Sudo Timeout Description"  --msgbox "This will force the the user authenticate each time the 'sudo' command is executed.
+													  By doing so it prevents potential attackers from running 'sudo' without authentication." 10 65 
 						msg_status=$?
 						description_loop=1 ;;
 						
@@ -610,7 +611,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Configure Password Complexity" 10 40 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Configure Password Complexity" 10 40 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -623,7 +624,8 @@ do
 						1) configure_pw_complexity ;;
 						
 						   # Description Dialog
-						2) dialog --title "Configure Password Complexity"  --msgbox "This will install libpam-pwquality in order to configure user password complexity. \
+						2) dialog --title "Configure Password Complexity"  --msgbox "This will install libpam-pwquality in order to configure user password complexity.
+						
 													       The configuration will include: Minimum 8 characters, 1 Uppercase, 1 Lowercase, 1 Digit, \
 													       1 Symbol, No Re-use Password (Remember up to 3 passwords) and No Username." 10 65
 						msg_status=$?
@@ -650,7 +652,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					fourth=$(dialog --cancel-label "Skip" \
-						--menu "Change Password:" 10 30 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Change Password" 10 30 3 1 Change 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -694,7 +696,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Configure Password Expiration (90 days)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Configure Password Expiration (90 days)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -734,7 +736,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Password Change Frequency (Restrictive)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Password Change Frequency (Restrictive)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -775,7 +777,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Configure sudo Umask (Restrictive)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Configure Sudo Umask (Restrictive)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -788,7 +790,7 @@ do
 						1) sudo_umask ;;
 						
 						   # Description Dialog
-						2) dialog --title "Configure Root Umask (Restrictive)"  --msgbox "This configuration can be quite restrictive as any new file and directory created  \
+						2) dialog --title "Configure Sudo Umask (Restrictive)"  --msgbox "This configuration can be quite restrictive as any new file and directory created  \
 														    by sudo can only be access with Root Priviledge ('# sudo <command>'). " 10 65 
 						msg_status=$?
 						description_loop=1 ;;
@@ -814,7 +816,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Configure Global Umask (Restrictive)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Configure Global Umask (Restrictive)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -823,7 +825,7 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # User only able to change password once a day (Restrictive)
+						   # Change Global Umask to 077
 						1) global_umask ;;
 						
 						   # Description Dialog
@@ -853,7 +855,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Remove Root Login" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Remove Root Login" 10 45 3 1 Remove 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -862,11 +864,12 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # User only able to change password once a day (Restrictive)
+						   # Remove Root Login
 						1) no_root_login ;;
 						
 						   # Description Dialog
-						2) dialog --title "Remove Root Login"  --msgbox "With this configuration, the user would no longer be able to login as root. The 'sudo' still works \
+						2) dialog --title "Remove Root Login"  --msgbox "With this configuration, the user would no longer be able to login as root. The 'sudo' command \
+												   still works.
 												   This is to prevent anyone to take advantage of the root account." 10 65 
 						msg_status=$?
 						description_loop=1 ;;
@@ -901,11 +904,15 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # User only able to change password once a day (Restrictive)
+						   # Completely Disable IPv6
 						1) disable_ipv6 ;;
 						
 						   # Description Dialog
-						2) dialog --title "Disabling IPv6"  --msgbox "This configuration would disable the IPv6." 10 65 
+						2) dialog --title "Disabling IPv6"  --msgbox "This configuration would disable the IPv6 on the user's machine.
+												As IPv6 is rarely used it is better to disable it in order to \
+												reduce the surface of attack.
+												
+												NOTE: Disabling IPv6 would cause vsftpd (FTP server) to not work properly" 10 65 
 						msg_status=$?
 						description_loop=1 ;;
 						
@@ -944,7 +951,7 @@ do
 							1) ssh_server_hardening ;;
 							
 							   # Description Dialog
-							2) dialog --title "General SSH Server Hardening"  --msgbox "This configuration would would Harden the SSH server." 10 65 
+							2) dialog --title "General SSH Server Hardening"  --msgbox "This configuration would Harden the SSH server." 10 65 
 							msg_status=$?
 							description_loop=1 ;;
 							
@@ -974,7 +981,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Remove Root login for SSH" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Remove Root login for SSH" 10 45 3 1 Remove 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -987,7 +994,9 @@ do
 							1) ssh_no_root ;;
 							
 							   # Description Dialog
-							2) dialog --title "Remove Root login for SSH"  --msgbox "SSH Client can no longer login as root" 10 65 
+							2) dialog --title "Remove Root login for SSH"  --msgbox "SSH Client can no longer login as root. 
+														   This is to prevent attackers from remote login \
+														   to the root account." 10 65 
 							msg_status=$?
 							description_loop=1 ;;
 							
@@ -1017,7 +1026,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Remove IPv6 for SSH" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Disable IPv6 for SSH" 10 45 3 1 Disable 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1026,11 +1035,12 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Remove Root login for SSH
+							   # Remove IPv6for SSH
 							1) ssh_disable_ipv6 ;;
 							
 							   # Description Dialog
-							2) dialog --title "Remove IPv6 for SSH"  --msgbox "SSH client can no longer connect to SSH server via IPv6" 10 65 
+							2) dialog --title "Disable IPv6 for SSH"  --msgbox "SSH client can no longer connect to SSH server via IPv6.
+													     As SSH is rarely used, disabling IPv6 reduces the surface of attack." 10 65 
 							msg_status=$?
 							description_loop=1 ;;
 							
@@ -1114,14 +1124,14 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Change default SSH port
+							   # Install and Configure Fail2Ban
 							1) fail_2_ban ;;
 							
 							   # Description Dialog
 							2) dialog --title "Install and Configure Fail2Ban"  --msgbox "Fail2Ban is a tool to either permanently or temporarily ban/block \
 															ip addresses that tries to brute forces remote connections. \
 															For this configuration, the Fail2Ban will ban/block any ip address \
-															for 1 hours after 3 login attempts." 10 65 
+															for 1 hours after 2-3 login attempts." 10 65 
 							msg_status=$?
 							description_loop=1 ;;
 							
@@ -1254,7 +1264,7 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Set the default outgoing and incoming firewall
 							1) default_ufw ;;
 							
 							   # Description Dialog
@@ -1289,7 +1299,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Firewall Allow incoming SSH Connection" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Firewall Allow incoming SSH Connection" 10 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1298,7 +1308,7 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Allow SSH throught the firewall
 							1) ufw_allow_ssh ;;
 							
 							   # Description Dialog
@@ -1333,7 +1343,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Firewall Allow incoming FTP Connection (Not Recommended)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Firewall Allow incoming FTP Connection (Not Recommended)" 10 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1342,12 +1352,13 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Allow FTP throught the firewall
 							1) ufw_allow_ftp ;;
 							
 							   # Description Dialog
 							2) dialog --title "Firewall Allow incoming FTP Connection (Not Recommended)"  --msgbox "This configuration will allow remote devices \
-																		   to connect to the User's device via FTP. \
+																		   to connect to the User's device via FTP.
+																		   
 																		   This is not recommended as FTP is a very insecure \
 																		   protocol as messages are not encrypted." 10 65 
 							msg_status=$?
@@ -1379,7 +1390,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Firewall Allow incoming Telnet Connection (Not Recommended)" 12 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Firewall Allow incoming Telnet Connection (Not Recommended)" 12 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1388,12 +1399,13 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Allow Telnet throught the firewall
 							1) ufw_allow_telnet ;;
 							
 							   # Description Dialog
 							2) dialog --title "Firewall Allow incoming Telnet Connection (Not Recommended)"  --msgbox "This configuration will allow remote devices \
-																		   to connect to the User's device via Telnet. \
+																		   to connect to the User's device via Telnet.
+																		   
 																		   This is not recommended as Telnet is a very insecure \
 																		   protocol as messages are not encrypted." 10 65 
 							msg_status=$?
@@ -1425,7 +1437,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Firewall Allow incoming HTTP Connection (For Hosting Website)" 12 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Firewall Allow incoming HTTP Connection (For Hosting Website)" 12 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1434,7 +1446,7 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Allow HTTP throught the firewall
 							1) ufw_allow_http ;;
 							
 							   # Description Dialog
@@ -1469,7 +1481,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Firewall Allow incoming HTTPS Connection (For Hosting Website)" 12 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Firewall Allow incoming HTTPS Connection (For Hosting Website)" 12 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1478,7 +1490,7 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Allow HTTPS throught the firewall
 							1) ufw_allow_https ;;
 							
 							   # Description Dialog
@@ -1513,7 +1525,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Enable UFW Firewall" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Enable UFW Firewall" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1522,7 +1534,7 @@ do
 						
 						# User's Choice
 						case $Third in
-							   # Uninstall FTP Server
+							   # Enable UFW Firewall
 							1) enable_ufw ;;
 							
 							   # Description Dialog
@@ -1556,7 +1568,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Second=$(dialog --cancel-label "Skip" \
-							--menu "Install GUFW (UFW Graphical User Interface)" 10 30 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Install GUFW (UFW Graphical User Interface)" 12 45 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1565,7 +1577,7 @@ do
 						
 						# User's Choice
 						case $Second in
-							   # Authenticate user each time sudo command is executed
+							   # Install GUFW
 							1) install_gufw ;;
 							
 							   # Description Dialog
@@ -1600,7 +1612,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Disabling Core Dump" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Disabling Core Dump" 10 45 3 1 Disable 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -1609,7 +1621,7 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # Password Expires in 90 days
+						   # Disabling Core Dumps
 						1) disable_coredump ;;
 						
 						   # Description Dialog
@@ -1640,7 +1652,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Disabling DCCP, RDS, TIPC and SCTP Protocols" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Disabling DCCP, RDS, TIPC and SCTP Protocols" 12 45 3 1 Disable 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -1649,7 +1661,7 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # Password Expires in 90 days
+						   # Disable DCCP, RDS, TIPC and SCTP Protocols
 						1) unused_protocols ;;
 						
 						   # Description Dialog
@@ -1679,7 +1691,7 @@ do
 					# Configuration Dialog Menu
 					exec 3>&1 
 					Third=$(dialog --cancel-label "Skip" \
-						--menu "Hardening Compiler (GCC, G++, CC and AS)" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+						--menu "Hardening Compiler (GCC, G++, CC and AS)" 10 45 3 1 Configure 2 Description 3 Exit 2>&1 1>&3)
 					exit_status=$? 
 					exec 3>&-
 					
@@ -1688,7 +1700,7 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # Password Expires in 90 days
+						   # Hardening Default compilers
 						1) harden_compiler ;;
 						
 						   # Description Dialog
@@ -1728,7 +1740,7 @@ do
 					
 					# User's Choice
 					case $Third in
-						   # Password Expires in 90 days
+						   # Change user's home directory permission to 700 
 						1) home_directory ;;
 						
 						   # Description Dialog
@@ -1759,7 +1771,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Installing Clamav Antivirus with Graphical User Interface" 10 45 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Installing Clamav Antivirus with Graphical User Interface" 12 60 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1846,7 +1858,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Install Additional Apparmor Profiles" 10 45 3 1 Enable 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Install Additional Apparmor Profiles" 10 45 3 1 Install 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						
@@ -1859,10 +1871,12 @@ do
 							1) configure_apparmor ;;
 							
 							   # Description Dialog
-							2) dialog --title "Install Additional Apparmor Profiles"  --msgbox "AppArmor is tool that ensure applications \ 
-															      only does what it is suppose to do if the \ 
+							2) dialog --title "Install Additional Apparmor Profiles"  --msgbox "AppArmor is tool that ensure applications \
+															      only does what it is suppose to do if the \
 															      application deviates from its task, AppArmor \
-															      would block it. This configuration install and \
+															      would block it. 
+															      
+															      This configuration install and \
 															      enforce additional rules for AppArmor." 10 65 
 							msg_status=$?
 							description_loop=1 ;;
@@ -1876,7 +1890,13 @@ do
 
 			#/================================================================================================/
 		# HomePage's Description Dialog
-		2) dialog --title "Message"  --msgbox "HomePage's Descriptions" 6 25 ;;
+		2) dialog --title "Linux System Hardening"  --msgbox "The intend of this system is to assist the user to harden their system in order to minimized the risk of \
+									being a victim to a cyber attack
+									
+									NOTE: This system simply minimized the risk of attack, it does not completely stop the attack. \
+									Hence, general security practices still needs to be followed. 
+									
+									Such as not installing suspicious looking files and clicking on suspicious looking links" 12 65 ;;
 		
 		#
 		3) description_loop=1

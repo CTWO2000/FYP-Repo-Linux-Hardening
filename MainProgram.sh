@@ -294,14 +294,18 @@ ssh_change_port() {
 		# Check if user input is a valid port number and not a string or empty 
 		if [[ $ssh_port ]] && [ $ssh_port -eq $ssh_port 2>/dev/null ]; then
 			valid_port=1
+			
+			sed -i "s/#Port .*/Port /" /etc/ssh/sshd_config 
+			sed -i "s/Port .*/Port $ssh_port/" /etc/ssh/sshd_config 
+			systemctl restart sshd
+			
+		elif [ $exit_status -eq 1 ]; then
+			valid_port=1
 		else
 			dialog --title "Invalid Port"  --msgbox "Please enter a number for the port." 10 65
 		fi
 	done
 	
-	sed -i "s/#Port .*/Port $ssh_port/" /etc/ssh/sshd_config 
-	
-	systemctl restart sshd
 }
 
 #/=====================================================================================================================================================================/

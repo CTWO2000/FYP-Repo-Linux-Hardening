@@ -172,6 +172,7 @@ disable_coredump() {
 
 	if [ ! "$sysctl_core" ]; then
 		cp /etc/sysctl.conf /etc/sysctl.conf.bak
+		sed -i "s/enabled=.*/enabled=0/" /etc/default/apport
 		echo -e "\n#Disable Coredump\nfs.suid_dumpable=0" >> /etc/sysctl.conf
 
 		sysctl -p | dialog --programbox "Disabling Core Dump" 20 70

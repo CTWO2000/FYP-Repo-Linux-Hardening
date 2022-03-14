@@ -97,7 +97,8 @@ configure_apparmor() {
 #/=====================================================================================================================================================================/
 # Enable AppArmor
 enable_apparmor() {
-	systemctl start apparmor 
+	systemctl start apparmor | dialog --programbox "Starting AppArmor (No Output)" 20 70
+	systemctl enable apparmor 2>&1 | dialog --programbox "Enabling AppArmor on Start Up" 20 70
 }
 #/=====================================================================================================================================================================/
 # Check if AppArmor is enabled
@@ -478,7 +479,7 @@ sudo_timeout () {
 #/=====================================================================================================================================================================/
 
 Back_Up_Config () {
-	timeshift --create --comments "Backup with Program" | dialog --programbox 12 70
+	timeshift --create --comments "Backup with Program" | dialog --programbox "Backing Up Configuration (Would take quite awhile)" 12 70
 }
 
 #/=====================================================================================================================================================================/
@@ -1347,7 +1348,7 @@ do
 						# Configuration Dialog Menu
 						exec 3>&1 
 						Third=$(dialog --cancel-label "Skip" \
-							--menu "Firewall Allow incoming FTP Connection (Not Recommended)" 10 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
+							--menu "Firewall Allow incoming FTP Connection (Not Recommended)" 12 45 3 1 Allow 2 Description 3 Exit 2>&1 1>&3)
 						exit_status=$? 
 						exec 3>&-
 						

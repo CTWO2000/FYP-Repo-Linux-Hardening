@@ -480,7 +480,9 @@ sudo_timeout () {
 #/=====================================================================================================================================================================/
 
 Back_Up_Config () {
-	timeshift --create --comments "Backup with Program" | dialog --programbox "Backing Up Configuration (Would take quite awhile)" 12 70
+	if [ $timeshift_installed -ne 0 ]; then
+		timeshift --create --comments "Backup with Program" | dialog --programbox "Backing Up Configuration (Would take quite awhile)" 12 70
+	fi
 }
 
 #/=====================================================================================================================================================================/
@@ -493,7 +495,8 @@ install_timeshift() {
 		exit_status=$? 
 		exec 3>&-
 		case $First in
-			1) apt -y install timeshift 2>/dev/null | dialog --programbox "Installing TimeShift" 20 70;;
+			1) apt -y install timeshift 2>/dev/null | dialog --programbox "Installing TimeShift" 20 70
+			timeshift_installed=1;;
 			2) quit_config=0
 		esac
 	fi
@@ -502,8 +505,8 @@ install_timeshift() {
 
 check_timeshift () {
 	# Install Timeshift if not installed 
+	timeshift_installed=1
 	command -v "timeshift" >/dev/null 2>&1
-
 	if [[ $? -ne 0 ]]; then
 		timeshift_installed=0
 	fi

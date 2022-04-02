@@ -1,4 +1,4 @@
-#/bin/bash 
+#!/bin/bash 
 
 
 # to make the program executable

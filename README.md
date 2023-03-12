@@ -1,4 +1,9 @@
 # FYP Repository
+## Execute Program
+```
+	# sudo ./run.sh
+```
+
 ## Change Default Umask Value
 1. Change "root" umask
 	- Navigate to "/etc/login.defs"  

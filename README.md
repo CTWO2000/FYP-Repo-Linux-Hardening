@@ -1,7 +1,7 @@
 # FYP Repository
 ## Execute Program
 ```
-	# sudo ./run.sh
+# sudo ./run.sh
 ```
 
 ## Change Default Umask Value

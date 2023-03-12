@@ -1,4 +1,8 @@
 # FYP Repository
+## Main Files
+1. run.sh
+2. MainProgram.sh
+
 ## Execute Program
 ```
 # sudo ./run.sh

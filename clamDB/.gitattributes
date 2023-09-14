@@ -1,0 +1,5 @@
+*.cvd filter=lfs diff=lfs merge=lfs -text
+freshclam.dat filter=lfs diff=lfs merge=lfs -text
+bytecode.cvd filter=lfs diff=lfs merge=lfs -text
+daily.cvd filter=lfs diff=lfs merge=lfs -text
+main.cvd filter=lfs diff=lfs merge=lfs -text
